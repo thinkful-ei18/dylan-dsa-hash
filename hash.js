@@ -23,6 +23,7 @@ class HashMap {
     }
 
     const index = this._findSlot(key);
+    if (this._slots[index]) this.length--;
     this._slots[index] = {
       key,
       value,
@@ -105,6 +106,7 @@ function main() {
 function isPalindrome(str) {
   const pal = new HashMap();
   let oddCount = 0;
+  str = str.toLowerCase().replace(/[^a-zA-Z0-9]/g, '');
   for (let i = 0; i < str.length; i++) {
     try {
       let value = pal.get(str[i]);
@@ -119,15 +121,19 @@ function isPalindrome(str) {
     if (value % 2 !== 0) oddCount++;
     if (oddCount > 1) return false;
   }
-  return str.length % 2 - oddCount === 0;
+  return true;
 }
 
-// console.log(isPalindrome('raceca'));
+// console.log(isPalindrome('a man a plan a canal panama'));
 
 function groupAnagrams(arr) {
   const ana = new HashMap();
+
   arr.forEach((word, index) => {
-    let sorted = word.split('').sort().join('');
+    let sorted = word
+      .split('')
+      .sort()
+      .join('');
     try {
       let value = ana.get(sorted);
       value.push(index);
@@ -136,7 +142,8 @@ function groupAnagrams(arr) {
       ana.set(sorted, [index]);
     }
   });
-  let result = [];
+
+  let result = new Array(ana.length);
 
   for (let i = 0; i < arr.length; i++) {
     let sorted = arr[i]
@@ -145,18 +152,148 @@ function groupAnagrams(arr) {
       .join('');
     try {
       let value = ana.get(sorted);
-      result.push(value);
+      value = value.map(index => {
+        return arr[index];
+      });
+      result[i] = value;
       ana.remove(sorted);
     } catch (error) {
       continue;
     }
   }
-  result.forEach((group, groupIndex) => {
-    group.forEach((value, valueIndex) => {
-      result[groupIndex][valueIndex] = (arr[result[groupIndex][valueIndex]]);
-    });
-  });
   return result;
 }
 
-console.log(groupAnagrams(['the', 'dog', 'teh']));
+// console.log(groupAnagrams(['the', 'dog', 'teh']));
+
+class _Node {
+  constructor(value) {
+    this.value = value;
+    this.next = null;
+  }
+}
+
+class LinkedList {
+  constructor() {
+    this.head = null;
+  }
+
+  insertLast(value) {
+    let node = new _Node(value);
+    if (this.head === null) return (this.head = node);
+    let tempNode = this.head;
+    while (tempNode.next !== null) {
+      tempNode = tempNode.next;
+    }
+    tempNode.next = node;
+  }
+}
+
+class ChainHash {
+  constructor(initialCapacity = 8) {
+    this.length = 0;
+    this._slots = [];
+    this._capacity = initialCapacity;
+    this._deleted = 0;
+  }
+
+  _findSlot(key) {
+    const hash = ChainHash._hashString(key);
+    return hash % this._capacity;
+  }
+
+  get(key) {
+    const index = this._findSlot(key);
+    
+    if (this._slots[index] === undefined) {
+      throw new Error('Key error');
+    }
+    let tempNode = this._slots[index].head;
+    while (tempNode !== null) {
+      if (tempNode.value.key === key) {
+        return tempNode.value.value;
+      }
+      tempNode = tempNode.next;
+    }
+    return null;
+  }
+
+  set(key, value) {
+    const loadRatio = (this.length + this._deleted + 1) / this._capacity;
+    if (loadRatio > HashMap.MAX_LOAD_RATIO) {
+      this._resize(this._capacity * HashMap.SIZE_RATIO);
+    }
+
+    const index = this._findSlot(key);
+    if (!this._slots[index]) {
+      let list = new LinkedList();
+      this._slots[index] = list;
+      this.length++;
+      return this._slots[index].insertLast({ key, value, deleted: false });
+    }
+    let tempNode = this._slots[index].head;
+    while (tempNode !== null) {
+      if (tempNode.value.key === key) {
+        return (tempNode.value = { key, value, deleted: false });
+      }
+      tempNode = tempNode.next;
+    }
+    this._slots[index].insertLast({ key, value, deleted: false });
+  }
+
+  remove(key) {
+    const index = this._findSlot(key);
+    if (index === undefined) {
+      throw new Error('Key error');
+    }
+    index.value.deleted = true;
+    this.length--;
+    this._deleted++;
+  }
+
+  static _hashString(string) {
+    let hash = 5381;
+    for (let i = 0; i < string.length; i++) {
+      hash = (hash << 5) + hash + string.charCodeAt(i);
+      hash = hash & hash;
+    }
+    return hash >>> 0;
+  }
+
+  _resize(size) {
+    const oldSlots = this._slots;
+    this._capacity = size;
+    // Reset the length - it will get rebuilt as you add the items back
+    this.length = 0;
+    this._deleted = 0;
+    this._slots = [];
+
+    for (const slot of oldSlots) {
+      if (slot !== undefined && !slot.deleted) {
+        this.set(slot.value.key, slot.value.value);
+      }
+    }
+  }
+}
+
+ChainHash.MAX_LOAD_RATIO = 0.9;
+ChainHash.SIZE_RATIO = 3;
+
+function main2() {
+  const hash = new ChainHash();
+  hash.set('Hobbit', 'Bilbo');
+  hash.set('Hobbit', 'Frodo');
+  hash.set('Wizard', 'Gandolf');
+  hash.set('Human', 'Aragon');
+  hash.set('Elf', 'Legolas');
+  hash.set('Maiar', 'The Necromancer');
+  hash.set('Maiar', 'Sauron');
+  hash.set('RingBearer', 'Gollum');
+  hash.set('LadyOfLight', 'Galadriel');
+  hash.set('HalfElven', 'Arwen');
+  hash.set('Ent', 'Treebeard');
+  console.log(JSON.stringify(hash, null, 4));
+  console.log(hash.get('Maiar'));
+}
+
+main2();
